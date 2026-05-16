@@ -21,10 +21,10 @@ import org.springframework.util.StringUtils;
 public class TechRadarService {
 
     private static final List<String> FALLBACK_THEMES = List.of(
-            "Production trade-offs",
-            "Failure handling",
-            "Observability",
-            "Performance tuning"
+            "工程实践取舍",
+            "故障处理",
+            "可观测性",
+            "性能调优"
     );
 
     private final WebRooterMcpGateway webRooterMcpGateway;
@@ -72,13 +72,13 @@ public class TechRadarService {
                     .filter(keyword -> !isInterviewRoundKeyword(keyword))
                     .forEach(parts::add);
         }
-        parts.add("backend architecture");
+        parts.add("最新 技术 实践 架构");
         return parts.stream()
                 .filter(StringUtils::hasText)
                 .map(String::trim)
                 .distinct()
                 .reduce((left, right) -> left + " " + right)
-                .orElse("backend architecture");
+                .orElse("后端 最新 技术 实践");
     }
 
     private String normalizePositionForTechSearch(String position) {
@@ -97,7 +97,7 @@ public class TechRadarService {
             tokens.add("Python");
         }
         if (lower.contains("backend") || lower.contains("后端")) {
-            tokens.add("backend");
+            tokens.add("后端");
         }
         if (tokens.isEmpty()) {
             tokens.add(position.trim().replace("Engineer", "").replace("工程师", "").replace("开发", "").trim());
@@ -132,7 +132,7 @@ public class TechRadarService {
                     candidate.url(),
                     normalizeSource(candidate.engine(), candidate.url()),
                     candidate.snippet(),
-                    "",
+                    candidate.publishedAt(),
                     Math.max(0.1, 0.94 - index * 0.04)
             ));
         }
@@ -148,6 +148,21 @@ public class TechRadarService {
         String lower = value.toLowerCase(Locale.ROOT);
         if (lower.contains("github")) {
             return "GitHub";
+        }
+        if (lower.contains("csdn")) {
+            return "CSDN";
+        }
+        if (lower.contains("bilibili")) {
+            return "Bilibili";
+        }
+        if (lower.contains("v2ex")) {
+            return "V2EX";
+        }
+        if (lower.contains("zhihu")) {
+            return "知乎";
+        }
+        if (lower.contains("weibo")) {
+            return "微博";
         }
         if (lower.contains("stackoverflow")) {
             return "Stack Overflow";
@@ -174,13 +189,14 @@ public class TechRadarService {
                 .reduce("", (left, right) -> left + " " + right)
                 .toLowerCase(Locale.ROOT);
 
-        addThemeIfSeen(themes, haystack, "agent", "LLM agents");
-        addThemeIfSeen(themes, haystack, "rag", "RAG systems");
-        addThemeIfSeen(themes, haystack, "redis", "Redis caching");
+        addThemeIfSeen(themes, haystack, "agent", "智能体工程");
+        addThemeIfSeen(themes, haystack, "rag", "RAG 系统");
+        addThemeIfSeen(themes, haystack, "redis", "Redis 缓存");
         addThemeIfSeen(themes, haystack, "spring", "Spring Boot");
-        addThemeIfSeen(themes, haystack, "kafka", "Kafka messaging");
-        addThemeIfSeen(themes, haystack, "observability", "Observability");
-        addThemeIfSeen(themes, haystack, "performance", "Performance tuning");
+        addThemeIfSeen(themes, haystack, "kafka", "Kafka 消息");
+        addThemeIfSeen(themes, haystack, "观测", "可观测性");
+        addThemeIfSeen(themes, haystack, "性能", "性能调优");
+        addThemeIfSeen(themes, haystack, "高并发", "高并发场景");
 
         FALLBACK_THEMES.stream()
                 .filter(theme -> !themes.contains(theme))
@@ -197,10 +213,10 @@ public class TechRadarService {
 
     private List<String> buildInterviewSignals(TechRadarRequest request, List<String> themes, List<TechRadarArticle> articles) {
         String company = StringUtils.hasText(request.company()) ? request.company() : "目标公司";
-        String leadTheme = themes.isEmpty() ? "production trade-offs" : themes.getFirst();
+        String leadTheme = themes.isEmpty() ? "工程实践取舍" : themes.getFirst();
         List<String> signals = new ArrayList<>();
         signals.add("把 " + leadTheme + " 拆成“为什么选它、什么时候不用、出故障怎么定位”三段回答。");
-        signals.add("用最新技术文章补足面经缺口：面经告诉你高频题，文章负责提供真实工程案例和指标语言。");
+        signals.add("用中文技术文章和社区讨论补足面经缺口：面经告诉你高频题，文章负责提供真实工程案例和指标语言。");
         signals.add("面向 " + company + " 的追问准备一条项目链路：背景、瓶颈、方案、观测指标、复盘改进。");
         if (!articles.isEmpty()) {
             signals.add("优先精读《" + articles.getFirst().title() + "》，把其中的 trade-off 改写成 3 个面试官追问。");

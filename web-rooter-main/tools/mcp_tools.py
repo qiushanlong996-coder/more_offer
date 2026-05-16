@@ -6,6 +6,7 @@ import json
 import re
 from typing import Optional, Dict, Any, List
 import logging
+import aiohttp
 
 from agents.web_agent import WebAgent, AgentResponse
 from core.search.engine import SearchEngine
@@ -80,6 +81,9 @@ class WebTools:
             包含页面标题、内容和链接的字典
         """
         await self._ensure_initialized()
+
+        if "api.bilibili.com/x/web-interface/wbi/search/type" in url:
+            return await self._fetch_bilibili_api(url)
         
         # 检测是否是社交媒体详情页，强制使用浏览器
         if self._is_social_detail_url(url):
@@ -89,6 +93,29 @@ class WebTools:
             result = await self._agent.visit(url)
         
         return result.to_dict()
+
+    async def _fetch_bilibili_api(self, url: str) -> Dict[str, Any]:
+        """Fetch Bilibili public API with browser-like headers for MCP clients."""
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+            "Referer": "https://search.bilibili.com/",
+            "Origin": "https://search.bilibili.com",
+            "Accept": "application/json,text/plain,*/*",
+        }
+        async with aiohttp.ClientSession(headers=headers) as session:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=20)) as response:
+                text = await response.text()
+                return {
+                    "success": 200 <= response.status < 300,
+                    "url": url,
+                    "title": "Bilibili API",
+                    "data": {
+                        "text": text,
+                        "status": response.status,
+                        "content_type": response.headers.get("content-type", ""),
+                    },
+                    "error": None if 200 <= response.status < 300 else f"HTTP {response.status}",
+                }
     
     def _is_social_detail_url(self, url: str) -> bool:
         """检测 URL 是否是社交媒体详情页"""

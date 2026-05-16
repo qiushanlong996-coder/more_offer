@@ -16,9 +16,14 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -34,6 +39,8 @@ public class McpStdioWebRooterGateway implements WebRooterMcpGateway {
     private static final Pattern DESCRIPTION_PATTERN = Pattern.compile("\"description\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"");
     private static final Pattern STARS_PATTERN = Pattern.compile("\"stargazers_count\"\\s*:\\s*(\\d+)");
     private static final Pattern LANGUAGE_PATTERN = Pattern.compile("\"language\"\\s*:\\s*\"([^\"]*)\"");
+    private static final Pattern HTML_TAG_PATTERN = Pattern.compile("<[^>]+>");
+    private static final DateTimeFormatter DAY_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE.withZone(ZoneOffset.UTC);
     private final WebRooterMcpProperties properties;
     private final ObjectMapper objectMapper;
 
@@ -80,32 +87,76 @@ public class McpStdioWebRooterGateway implements WebRooterMcpGateway {
     private WebRooterSearchResult fetchCuratedTechSources(BufferedWriter writer, BufferedReader reader, String query, int limit) throws IOException {
         int maxItems = Math.max(1, Math.min(limit, 20));
         String encodedQuery = URLEncoder.encode(query, StandardCharsets.UTF_8);
-        String discussionQuery = URLEncoder.encode(toDiscussionQuery(query), StandardCharsets.UTF_8);
+        String chineseQuery = toChineseQuery(query);
+        String encodedChineseQuery = URLEncoder.encode(chineseQuery, StandardCharsets.UTF_8);
         Map<String, WebRooterArticleCandidate> deduped = new LinkedHashMap<>();
+        int id = 2;
 
-        String hackerNewsUrl = "https://hn.algolia.com/api/v1/search?query=" + discussionQuery
-                + "&tags=story&hitsPerPage=" + maxItems;
+        String csdnUrl = "https://so.csdn.net/api/v3/search?q=" + encodedChineseQuery
+                + "&t=blog&p=1&s=0&tm=0&lv=-1&ft=0&l=&u=&ct=-1";
         try {
-            String hackerNewsText = callFetch(writer, reader, 2, hackerNewsUrl);
-            parseHackerNews(query, hackerNewsText, deduped, maxItems);
+            String csdnText = callFetch(writer, reader, id++, csdnUrl);
+            parseCsdn(csdnText, deduped, Math.min(maxItems, 6));
         } catch (IOException | RuntimeException ignored) {
-            // Keep partial results from other sources when one upstream source is malformed or rate-limited.
+            // CSDN occasionally returns anti-bot or malformed payloads; keep other Chinese sources.
         }
 
-        String githubUrl = "https://api.github.com/search/repositories?q=" + encodedQuery
-                + "&sort=stars&order=desc&per_page=" + maxItems;
+        String bilibiliUrl = "https://api.bilibili.com/x/web-interface/wbi/search/type?search_type=video&keyword="
+                + encodedChineseQuery + "&page=1&order=pubdate";
         try {
-            String githubText = callFetch(writer, reader, 3, githubUrl);
-            parseGitHub(githubText, deduped, maxItems);
+            String bilibiliText = callFetch(writer, reader, id++, bilibiliUrl);
+            parseBilibili(bilibiliText, deduped, Math.min(maxItems, 9));
         } catch (IOException | RuntimeException ignored) {
-            // GitHub API payloads are sometimes transformed by Web-Rooter; skip rather than failing the whole radar.
+            // Bilibili may ask for risk verification; social search remains as a fallback.
         }
 
-        return new WebRooterSearchResult(query, deduped.values().stream().limit(maxItems).toList(), "");
+        String v2exUrl = "https://www.sov2ex.com/api/search?q=" + encodedChineseQuery;
+        try {
+            String v2exText = callFetch(writer, reader, id++, v2exUrl);
+            parseV2ex(v2exText, deduped, Math.min(maxItems, 11));
+        } catch (IOException | RuntimeException ignored) {
+            // V2EX search is supplementary community signal.
+        }
+
+        try {
+            String socialText = callTool(writer, reader, id++, "web_search_social", socialParams(chineseQuery));
+            parseSocialSearch(socialText, deduped, Math.min(maxItems, 12));
+        } catch (IOException | RuntimeException ignored) {
+            // Social search can be slow or blocked by platform pages; API sources above are the stable path.
+        }
+
+        if (deduped.size() < 3) {
+            String discussionQuery = URLEncoder.encode(toDiscussionQuery(query), StandardCharsets.UTF_8);
+            String hackerNewsUrl = "https://hn.algolia.com/api/v1/search?query=" + discussionQuery
+                    + "&tags=story&hitsPerPage=" + maxItems;
+            try {
+                String hackerNewsText = callFetch(writer, reader, id++, hackerNewsUrl);
+                parseHackerNews(query, hackerNewsText, deduped, maxItems);
+            } catch (IOException | RuntimeException ignored) {
+                // Keep partial results from other sources when one upstream source is malformed or rate-limited.
+            }
+        }
+
+        if (deduped.isEmpty()) {
+            String githubUrl = "https://api.github.com/search/repositories?q=" + encodedQuery
+                    + "&sort=stars&order=desc&per_page=" + maxItems;
+            try {
+                String githubText = callFetch(writer, reader, id, githubUrl);
+                parseGitHub(githubText, deduped, maxItems);
+            } catch (IOException | RuntimeException ignored) {
+                // GitHub is a last resort now; Chinese article/community sources are preferred.
+            }
+        }
+
+        return new WebRooterSearchResult(chineseQuery, deduped.values().stream().limit(maxItems).toList(), "");
     }
 
     private String toDiscussionQuery(String query) {
         String simplified = query
+                .replace("最新", " ")
+                .replace("技术", " ")
+                .replace("实践", " ")
+                .replace("架构", " ")
                 .replaceAll("(?i)\\bbackend\\b", " ")
                 .replaceAll("(?i)\\barchitecture\\b", " ")
                 .replaceAll("(?i)\\bengineer\\b", " ")
@@ -117,8 +168,28 @@ public class McpStdioWebRooterGateway implements WebRooterMcpGateway {
         return StringUtils.hasText(simplified) ? simplified : query;
     }
 
+    private String toChineseQuery(String query) {
+        String normalized = query
+                .replaceAll("(?i)\\bbackend\\b", "后端")
+                .replaceAll("(?i)\\barchitecture\\b", "架构")
+                .replaceAll("(?i)\\bengineer\\b", "工程师")
+                .trim()
+                .replaceAll("\\s+", " ");
+        if (!normalized.contains("最新")) {
+            normalized = normalized + " 最新";
+        }
+        if (!normalized.contains("实践")) {
+            normalized = normalized + " 实践";
+        }
+        return normalized;
+    }
+
     private String callFetch(BufferedWriter writer, BufferedReader reader, int id, String url) throws IOException {
-        send(writer, id, "tools/call", fetchParams(url));
+        return callTool(writer, reader, id, "web_fetch", fetchArguments(url));
+    }
+
+    private String callTool(BufferedWriter writer, BufferedReader reader, int id, String toolName, ObjectNode arguments) throws IOException {
+        send(writer, id, "tools/call", toolParams(toolName, arguments));
         JsonNode response = readResponse(reader, id);
         JsonNode result = response.path("result");
         String text = result.path("content").path(0).path("text").asText();
@@ -126,6 +197,151 @@ public class McpStdioWebRooterGateway implements WebRooterMcpGateway {
             throw new IllegalStateException("Web-Rooter MCP fetch failed: " + text);
         }
         return text;
+    }
+
+    private void parseCsdn(String text, Map<String, WebRooterArticleCandidate> articles, int limit) throws IOException {
+        JsonNode apiRoot = extractFetchedJson(text);
+        JsonNode results = apiRoot.path("result_vos");
+        if (!results.isArray()) {
+            return;
+        }
+
+        List<JsonNode> sorted = new ArrayList<>();
+        results.forEach(sorted::add);
+        sorted.sort(Comparator.comparingLong(item -> -item.path("create_time").asLong(0)));
+        for (JsonNode item : sorted) {
+            if (articles.size() >= limit) {
+                return;
+            }
+            String title = cleanText(item.path("title").asText(""));
+            String url = firstText(item.path("url_location").asText(""), item.path("url").asText(""));
+            if (!isUsableTitle(title) || !StringUtils.hasText(url)) {
+                continue;
+            }
+            String snippet = firstText(item.path("description").asText(""), item.path("digest").asText(""));
+            String publishedAt = firstText(item.path("created_at").asText(""), item.path("create_time_str").asText(""));
+            String metrics = "阅读 " + item.path("view_num").asText(item.path("view").asText("0"))
+                    + "，点赞 " + item.path("digg").asText("0")
+                    + "，评论 " + item.path("comment").asText("0") + "。";
+            articles.putIfAbsent(url, new WebRooterArticleCandidate(
+                    title,
+                    url,
+                    truncate(cleanText(snippet) + " " + metrics, 320),
+                    "csdn",
+                    publishedAt,
+                    articles.size() + 1
+            ));
+        }
+    }
+
+    private void parseBilibili(String text, Map<String, WebRooterArticleCandidate> articles, int limit) throws IOException {
+        JsonNode apiRoot = extractFetchedJson(text);
+        JsonNode results = apiRoot.path("data").path("result");
+        if (!results.isArray()) {
+            return;
+        }
+
+        List<JsonNode> sorted = new ArrayList<>();
+        results.forEach(sorted::add);
+        sorted.sort(Comparator.comparingLong(item -> -item.path("pubdate").asLong(0)));
+        for (JsonNode item : sorted) {
+            if (articles.size() >= limit) {
+                return;
+            }
+            String title = cleanText(item.path("title").asText(""));
+            String bvid = item.path("bvid").asText("");
+            String url = StringUtils.hasText(bvid)
+                    ? "https://www.bilibili.com/video/" + bvid
+                    : firstText(item.path("arcurl").asText(""), item.path("url").asText(""));
+            if (!isUsableTitle(title) || !StringUtils.hasText(url) || item.path("is_pay").asInt(0) == 1) {
+                continue;
+            }
+            String publishedAt = formatEpochSeconds(item.path("pubdate").asLong(0));
+            String snippet = cleanText(firstText(item.path("description").asText(""), item.path("tag").asText("")))
+                    + " UP " + item.path("author").asText("未知")
+                    + "，播放 " + item.path("play").asText("0")
+                    + "，评论 " + item.path("review").asText("0")
+                    + "，弹幕 " + item.path("video_review").asText("0") + "。";
+            articles.putIfAbsent(url, new WebRooterArticleCandidate(
+                    title,
+                    url,
+                    truncate(snippet, 320),
+                    "bilibili",
+                    publishedAt,
+                    articles.size() + 1
+            ));
+        }
+    }
+
+    private void parseV2ex(String text, Map<String, WebRooterArticleCandidate> articles, int limit) throws IOException {
+        JsonNode apiRoot = extractFetchedJson(text);
+        JsonNode hits = apiRoot.path("hits");
+        if (!hits.isArray()) {
+            return;
+        }
+
+        List<JsonNode> sorted = new ArrayList<>();
+        hits.forEach(sorted::add);
+        sorted.sort(Comparator.comparing(hit -> hit.path("_source").path("created").asText(""), Comparator.reverseOrder()));
+        for (JsonNode hit : sorted) {
+            if (articles.size() >= limit) {
+                return;
+            }
+            JsonNode source = hit.path("_source");
+            String title = cleanText(source.path("title").asText(""));
+            String topicId = source.path("id").asText("");
+            if (!isUsableTitle(title) || !StringUtils.hasText(topicId)) {
+                continue;
+            }
+            String url = "https://www.v2ex.com/t/" + topicId;
+            String snippet = cleanText(source.path("content").asText(""));
+            String replies = source.path("replies").asText("");
+            if (StringUtils.hasText(replies)) {
+                snippet = snippet + " 回复 " + replies + "。";
+            }
+            articles.putIfAbsent(url, new WebRooterArticleCandidate(
+                    title,
+                    url,
+                    truncate(snippet, 320),
+                    "v2ex",
+                    source.path("created").asText(""),
+                    articles.size() + 1
+            ));
+        }
+    }
+
+    private void parseSocialSearch(String text, Map<String, WebRooterArticleCandidate> articles, int limit) throws IOException {
+        if (!StringUtils.hasText(text) || !text.trim().startsWith("{")) {
+            return;
+        }
+        JsonNode root = objectMapper.readTree(text);
+        JsonNode results = root.path("results");
+        if (!results.isArray()) {
+            results = root.path("citations");
+        }
+        if (!results.isArray()) {
+            return;
+        }
+
+        for (JsonNode item : results) {
+            if (articles.size() >= limit) {
+                return;
+            }
+            String title = cleanText(item.path("title").asText(""));
+            String url = item.path("url").asText("");
+            if (!isUsableTitle(title) || !StringUtils.hasText(url)) {
+                continue;
+            }
+            String engine = firstText(item.path("engine").asText(""), item.path("domain").asText(""));
+            articles.putIfAbsent(url, new WebRooterArticleCandidate(
+                    title,
+                    url,
+                    truncate(cleanText(item.path("snippet").asText("")), 280),
+                    StringUtils.hasText(engine) ? engine.toLowerCase(Locale.ROOT) : "social",
+                    item.path("retrieved_at").asText(""),
+                    articles.size() + 1
+            ));
+        }
     }
 
     private void parseHackerNews(String query, String text, Map<String, WebRooterArticleCandidate> articles, int limit) throws IOException {
@@ -151,7 +367,14 @@ public class McpStdioWebRooterGateway implements WebRooterMcpGateway {
             String snippet = "Hacker News discussion for " + query
                     + "; points " + hit.path("points").asInt(0)
                     + ", comments " + hit.path("num_comments").asInt(0) + ".";
-            articles.putIfAbsent(url, new WebRooterArticleCandidate(title, url, snippet, "hackernews", articles.size() + 1));
+            articles.putIfAbsent(url, new WebRooterArticleCandidate(
+                    title,
+                    url,
+                    snippet,
+                    "hackernews",
+                    hit.path("created_at").asText(""),
+                    articles.size() + 1
+            ));
         }
     }
 
@@ -173,7 +396,14 @@ public class McpStdioWebRooterGateway implements WebRooterMcpGateway {
                 String snippet = (StringUtils.hasText(description) ? description + " " : "")
                         + "GitHub stars " + item.path("stargazers_count").asInt(0)
                         + ", language " + language + ".";
-                articles.putIfAbsent(url, new WebRooterArticleCandidate(title, url, snippet, "github", articles.size() + 1));
+                articles.putIfAbsent(url, new WebRooterArticleCandidate(
+                        title,
+                        url,
+                        snippet,
+                        "github",
+                        item.path("pushed_at").asText(item.path("updated_at").asText("")),
+                        articles.size() + 1
+                ));
             }
             return;
         }
@@ -201,7 +431,7 @@ public class McpStdioWebRooterGateway implements WebRooterMcpGateway {
             String snippet = (StringUtils.hasText(description) ? unescapeJsonString(description) + " " : "")
                     + "GitHub stars " + (StringUtils.hasText(stars) ? stars : "0")
                     + ", language " + (StringUtils.hasText(language) ? language : "unknown") + ".";
-            articles.putIfAbsent(repoUrl, new WebRooterArticleCandidate(fullName, repoUrl, snippet, "github", articles.size() + 1));
+            articles.putIfAbsent(repoUrl, new WebRooterArticleCandidate(fullName, repoUrl, snippet, "github", "", articles.size() + 1));
         }
     }
 
@@ -268,13 +498,74 @@ public class McpStdioWebRooterGateway implements WebRooterMcpGateway {
         }
     }
 
-    private ObjectNode fetchParams(String url) {
+    private ObjectNode toolParams(String name, ObjectNode arguments) {
         ObjectNode params = objectMapper.createObjectNode();
-        params.put("name", "web_fetch");
-        ObjectNode arguments = objectMapper.createObjectNode();
-        arguments.put("url", url);
+        params.put("name", name);
         params.set("arguments", arguments);
         return params;
+    }
+
+    private ObjectNode fetchArguments(String url) {
+        ObjectNode arguments = objectMapper.createObjectNode();
+        arguments.put("url", url);
+        return arguments;
+    }
+
+    private ObjectNode socialParams(String query) {
+        ObjectNode arguments = objectMapper.createObjectNode();
+        arguments.put("query", query);
+        arguments.putArray("platforms")
+                .add("bilibili")
+                .add("zhihu")
+                .add("weibo");
+        return arguments;
+    }
+
+    private boolean isUsableTitle(String title) {
+        if (!StringUtils.hasText(title)) {
+            return false;
+        }
+        String normalized = title.trim();
+        if (normalized.length() < 4) {
+            return false;
+        }
+        int letters = 0;
+        for (int index = 0; index < normalized.length(); index++) {
+            if (Character.isLetter(normalized.charAt(index))) {
+                letters++;
+            }
+        }
+        return letters >= 2;
+    }
+
+    private String cleanText(String value) {
+        if (!StringUtils.hasText(value)) {
+            return "";
+        }
+        String withoutTags = HTML_TAG_PATTERN.matcher(value).replaceAll("");
+        return withoutTags
+                .replace("&nbsp;", " ")
+                .replace("&amp;", "&")
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replace("&quot;", "\"")
+                .replace("&#39;", "'")
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    private String truncate(String value, int maxLength) {
+        if (!StringUtils.hasText(value) || value.length() <= maxLength) {
+            return StringUtils.hasText(value) ? value : "";
+        }
+        return value.substring(0, maxLength - 1) + "…";
+    }
+
+    private String formatEpochSeconds(long epochSeconds) {
+        if (epochSeconds <= 0) {
+            return "";
+        }
+        return DAY_FORMATTER.format(Instant.ofEpochSecond(epochSeconds));
     }
 
     private WebRooterSearchResult toSearchResult(String fallbackQuery, String text, int limit) throws IOException {
@@ -307,6 +598,7 @@ public class McpStdioWebRooterGateway implements WebRooterMcpGateway {
                         url,
                         item.path("snippet").asText(""),
                         item.path("engine").asText("web-rooter"),
+                        item.path("published_at").asText(""),
                         item.path("rank").asInt(articles.size() + 1)
                 ));
             }

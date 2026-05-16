@@ -98,11 +98,12 @@ public class OpenAiSummaryService {
             node.put("source", article.source());
             node.put("url", article.sourceUrl());
             node.put("snippet", article.snippet());
+            node.put("publishedAt", article.publishedAt());
         }
         return """
                 请基于下面 JSON 生成中文摘要，控制在 5 句话内：
-                1. 先说明这些技术文章共同指向的趋势。
-                2. 点出和候选人面试准备最相关的 2-3 个技术追问方向。
+                1. 先说明这些中文技术文章、视频或社区讨论共同指向的趋势。
+                2. 按来源差异提炼 2-3 个技术追问方向，优先引用国内开发者语境。
                 3. 不要输出 Markdown 表格，不要虚构文章中没有的信息。
 
                 JSON:
@@ -139,9 +140,11 @@ public class OpenAiSummaryService {
         String company = StringUtils.hasText(request.company()) ? request.company() : "目标公司";
         String leadTitle = articles.getFirst().title();
         int count = articles.size();
-        return "本次 Web-Rooter 搜索抓到 " + count + " 条技术社区结果，首要信号来自《" + leadTitle
+        long sourceCount = articles.stream().map(TechRadarArticle::source).distinct().count();
+        return "本次 Web-Rooter 搜索抓到 " + count + " 条中文优先技术材料，覆盖 " + sourceCount
+                + " 类来源，首要信号来自《" + leadTitle
                 + "》。这些材料适合作为 " + company + " " + request.position()
-                + " 面试的补充来源：把文章里的工程取舍、失败场景和性能指标整理成追问链，再回到面经里验证是否高频出现。";
+                + " 面试的补充来源：把文章、视频和评论讨论里的工程取舍、失败场景和性能指标整理成追问链，再回到面经里验证是否高频出现。";
     }
 
     public record SummaryResult(String text, boolean generatedByOpenAi) {

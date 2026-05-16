@@ -84,3 +84,11 @@
 - Deployed `/opt/more-offer/releases/m5-web-rooter-final-20260516150957` to the server and kept public access on `http://www.lovenuaa.xyz:9001/`.
 - Public validation passed: `/actuator/health` returned `UP`, `POST /api/tech-radar/research` returned 4 Web-Rooter-backed sources in about 5.7s, and `POST /api/interview-experiences/search` still returned 20 Nowcoder results.
 - Browser validation passed on the public UI: clicking `Research Tech` rendered the Radar tab with 4 Web-Rooter sources and no app console errors.
+
+## 2026-05-16 Chinese Tech Radar Sources
+
+- Updated Tech Radar to prioritize Chinese developer sources for Chinese users: CSDN articles, Bilibili technology videos, V2EX discussions, and Web-Rooter social search are queried before Hacker News/GitHub.
+- Added Bilibili API handling inside the bundled Web-Rooter MCP server so the backend can fetch Bilibili search results through MCP with browser-like public headers.
+- Increased frontend Radar requests from 8 to 12 sources and surfaced `publishedAt` in article cards.
+- Local validation passed: backend `mvn test` and frontend `npm run build`.
+- Prepared release package `m6-chinese-tech-radar-20260516155157`, but deployment is currently blocked because SSH to `www.lovenuaa.xyz` closes before the SSH banner (`Connection closed by remote host` / `ECONNRESET`) while port `9001` remains reachable.

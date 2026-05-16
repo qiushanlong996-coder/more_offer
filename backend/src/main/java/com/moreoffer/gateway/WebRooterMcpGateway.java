@@ -18,6 +18,7 @@ public interface WebRooterMcpGateway {
             String url,
             String snippet,
             String engine,
+            String publishedAt,
             int rank
     ) {
     }

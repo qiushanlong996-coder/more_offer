@@ -118,7 +118,7 @@ export function App() {
         position,
         company,
         keywords,
-        limit: 8
+        limit: 12
       });
       setTechRadar(result);
       setActiveTab("radar");
@@ -220,7 +220,7 @@ export function App() {
         <section className="insight-strip">
           <MetricCard icon={<BriefcaseBusiness size={18} />} label="Interviews" value={items.length} />
           <MetricCard icon={<ClipboardList size={18} />} label="Problems" value={problems.length} />
-          <MetricCard icon={<Radar size={18} />} label="Tech Articles" value={techRadar?.articles.length ?? "--"} />
+          <MetricCard icon={<Radar size={18} />} label="CN Tech Sources" value={techRadar?.articles.length ?? "--"} />
           <MetricCard icon={<Gauge size={18} />} label="Readiness" value={plan?.readinessScore ?? "--"} />
         </section>
 
@@ -299,7 +299,7 @@ export function App() {
               <div className="radar-mini">
                 <span>{techRadar.generatedByOpenAi ? "OpenAI summary" : "Local summary"}</span>
                 <strong>{techRadar.themes[0] ?? "Tech radar"}</strong>
-                <p>{techRadar.articles.length} Web-Rooter sources</p>
+                <p>{techRadar.articles.length} Chinese-first sources</p>
               </div>
             )}
           </aside>
@@ -449,7 +449,7 @@ function TechRadarView({
               <div>
                 <h2>{article.title}</h2>
                 <p>
-                  {article.source} - Match {Math.round(article.score * 100)}%
+                  {article.source} - {article.publishedAt || "recent"} - Match {Math.round(article.score * 100)}%
                 </p>
               </div>
               <a href={article.sourceUrl} target="_blank" rel="noreferrer" aria-label="Open article">

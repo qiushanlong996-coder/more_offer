@@ -20,6 +20,7 @@ class TechRadarServiceTest {
                             "https://example.com/redis-caching",
                             "Production cache invalidation, observability, and performance trade-offs.",
                             "github",
+                            "2026-05-16",
                             1
                     ),
                     new WebRooterMcpGateway.WebRooterArticleCandidate(
@@ -27,6 +28,7 @@ class TechRadarServiceTest {
                             "https://example.com/spring-incident",
                             "Failure handling and retry boundaries for backend systems.",
                             "medium",
+                            "2026-05-15",
                             2
                     )
             ),
@@ -48,10 +50,11 @@ class TechRadarServiceTest {
                 5
         ));
 
-        assertThat(response.query()).contains("Java backend", "backend architecture");
+        assertThat(response.query()).contains("Java", "后端", "最新 技术 实践");
         assertThat(response.generatedByOpenAi()).isFalse();
         assertThat(response.articles()).hasSize(2);
         assertThat(response.themes()).contains("Spring", "Redis");
+        assertThat(response.articles().getFirst().publishedAt()).isEqualTo("2026-05-16");
         assertThat(response.interviewSignals()).hasSizeGreaterThanOrEqualTo(3);
         assertThat(response.summary()).contains("Web-Rooter");
     }

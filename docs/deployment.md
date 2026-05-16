@@ -37,3 +37,18 @@ The current deployment path is behind an ISP policy that blocks standard web por
 ## Headless Browser
 
 The server is a non-GUI CentOS host. This is compatible with Playwright as long as the MCP server launches a headless browser. The deployed setup uses EPEL `chromium-headless` at `/usr/lib64/chromium-browser/headless_shell`, and `deploy/more-offer-backend.service` exports `NOWCODER_BROWSER_EXECUTABLE_PATH` so the MCP process does not depend on Playwright's browser download cache.
+
+## GitHub Push Troubleshooting
+
+If `git push origin main` fails with GitHub connection reset or port `443` timeout on this Windows development machine, check whether Git is still using a stale global proxy. The known fix is:
+
+```powershell
+git config --global --unset http.proxy
+git config --global --unset https.proxy
+```
+
+After unsetting the proxy, retry:
+
+```powershell
+git push origin main
+```

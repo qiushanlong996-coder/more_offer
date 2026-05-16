@@ -15,6 +15,7 @@ This project is a web app for software engineer job search preparation. It targe
 3. Test each feature with browser automation or an equivalent end-to-end smoke test.
 4. After tests and deployment validation pass, commit code to git. The default branch is `main`.
 5. Keep secrets out of git. Store server credentials only in local `AGENT.md` or another local secret mechanism.
+6. If GitHub push fails with a connection reset or port `443` timeout on Windows, clear stale global Git proxy settings with `git config --global --unset http.proxy` and `git config --global --unset https.proxy`, then retry the push.
 
 ## Deployment Notes
 

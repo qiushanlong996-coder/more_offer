@@ -60,3 +60,8 @@
 - Frontend keyword parsing now splits only on comma characters, so `first round` is preserved as one phrase when users type it.
 - Deployed `/opt/more-offer/releases/m4-search-query-20260516094629`.
 - Public validation with the stale English payload returned `total=20`; browser click validation also returned 20 cards.
+
+## 2026-05-16 Git Push Proxy Note
+
+- Recorded GitHub push troubleshooting: this Windows machine may fail to push if stale global Git proxy settings are present.
+- Known fix: run `git config --global --unset http.proxy` and `git config --global --unset https.proxy`, then retry `git push origin main`.

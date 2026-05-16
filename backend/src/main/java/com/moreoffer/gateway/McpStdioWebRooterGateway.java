@@ -106,7 +106,7 @@ public class McpStdioWebRooterGateway implements WebRooterMcpGateway {
         try {
             String bilibiliText = callFetch(writer, reader, id++, bilibiliUrl);
             int[] commentFetchId = {id};
-            parseBilibili(bilibiliText, deduped, Math.min(maxItems, Math.max(4, maxItems / 2)), writer, reader, commentFetchId);
+            parseBilibili(bilibiliText, deduped, Math.min(maxItems, deduped.size() + 4), writer, reader, commentFetchId);
             id = commentFetchId[0];
         } catch (IOException | RuntimeException ignored) {
             // Bilibili may ask for risk verification; social search remains as a fallback.

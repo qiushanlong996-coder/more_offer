@@ -98,3 +98,4 @@
 - Committed and pushed the hot-comment source update to `main` as `8f082e0 feat: include bilibili comment signals`.
 - After server reboot restored SSH, logs showed heavy public SSH password spraying on May 16 and no `sshd` authentication entries during the later unreachable window. The evidence points to an SSH/upstream forwarding or daemon availability issue before authentication, not an application deployment command changing SSH config.
 - Deployed `m6-chinese-tech-radar-hot-comments-20260516200205` after SSH recovered, then tightened source balancing so Bilibili cannot fill the entire Tech Radar result set when CSDN/V2EX are available.
+- Public validation after source balancing found CSDN and V2EX results, then a cap-boundary bug skipped Bilibili after CSDN filled its quota; adjusted the Bilibili cap to add up to four items on top of existing Chinese sources.

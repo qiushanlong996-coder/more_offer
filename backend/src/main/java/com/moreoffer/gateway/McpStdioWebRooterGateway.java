@@ -96,7 +96,7 @@ public class McpStdioWebRooterGateway implements WebRooterMcpGateway {
                 + "&t=blog&p=1&s=0&tm=0&lv=-1&ft=0&l=&u=&ct=-1";
         try {
             String csdnText = callFetch(writer, reader, id++, csdnUrl);
-            parseCsdn(csdnText, deduped, Math.min(maxItems, 6));
+            parseCsdn(csdnText, deduped, Math.min(maxItems, 4));
         } catch (IOException | RuntimeException ignored) {
             // CSDN occasionally returns anti-bot or malformed payloads; keep other Chinese sources.
         }
@@ -106,7 +106,7 @@ public class McpStdioWebRooterGateway implements WebRooterMcpGateway {
         try {
             String bilibiliText = callFetch(writer, reader, id++, bilibiliUrl);
             int[] commentFetchId = {id};
-            parseBilibili(bilibiliText, deduped, Math.min(maxItems, 9), writer, reader, commentFetchId);
+            parseBilibili(bilibiliText, deduped, Math.min(maxItems, Math.max(4, maxItems / 2)), writer, reader, commentFetchId);
             id = commentFetchId[0];
         } catch (IOException | RuntimeException ignored) {
             // Bilibili may ask for risk verification; social search remains as a fallback.
@@ -115,7 +115,7 @@ public class McpStdioWebRooterGateway implements WebRooterMcpGateway {
         String v2exUrl = "https://www.sov2ex.com/api/search?q=" + encodedChineseQuery;
         try {
             String v2exText = callFetch(writer, reader, id++, v2exUrl);
-            parseV2ex(v2exText, deduped, Math.min(maxItems, 11));
+            parseV2ex(v2exText, deduped, Math.min(maxItems, deduped.size() + 4));
         } catch (IOException | RuntimeException ignored) {
             // V2EX search is supplementary community signal.
         }

@@ -83,7 +83,26 @@ class WebTools:
         await self._ensure_initialized()
 
         if "api.bilibili.com/x/web-interface/wbi/search/type" in url or "api.bilibili.com/x/v2/reply" in url:
-            return await self._fetch_bilibili_api(url)
+            return await self._fetch_public_json_api(
+                url,
+                referer="https://search.bilibili.com/",
+                origin="https://search.bilibili.com",
+                title="Bilibili API",
+            )
+        if "so.csdn.net/api/v3/search" in url:
+            return await self._fetch_public_json_api(
+                url,
+                referer="https://so.csdn.net/",
+                origin="https://so.csdn.net",
+                title="CSDN API",
+            )
+        if "www.sov2ex.com/api/search" in url:
+            return await self._fetch_public_json_api(
+                url,
+                referer="https://www.sov2ex.com/",
+                origin="https://www.sov2ex.com",
+                title="V2EX API",
+            )
         
         # 检测是否是社交媒体详情页，强制使用浏览器
         if self._is_social_detail_url(url):
@@ -94,12 +113,12 @@ class WebTools:
         
         return result.to_dict()
 
-    async def _fetch_bilibili_api(self, url: str) -> Dict[str, Any]:
-        """Fetch Bilibili public API with browser-like headers for MCP clients."""
+    async def _fetch_public_json_api(self, url: str, *, referer: str, origin: str, title: str) -> Dict[str, Any]:
+        """Fetch public JSON APIs with browser-like headers for MCP clients."""
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-            "Referer": "https://search.bilibili.com/",
-            "Origin": "https://search.bilibili.com",
+            "Referer": referer,
+            "Origin": origin,
             "Accept": "application/json,text/plain,*/*",
         }
         async with aiohttp.ClientSession(headers=headers) as session:
@@ -108,7 +127,7 @@ class WebTools:
                 return {
                     "success": 200 <= response.status < 300,
                     "url": url,
-                    "title": "Bilibili API",
+                    "title": title,
                     "data": {
                         "text": text,
                         "status": response.status,

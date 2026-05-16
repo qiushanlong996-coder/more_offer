@@ -96,3 +96,5 @@
 - Current public server health is degraded while SSH is unavailable: `http://www.lovenuaa.xyz:9001/actuator/health` returns nginx `502`, and the root page returns `500`. The release package can be activated once SSH access recovers.
 - Revalidated after the hot-comment change: backend `mvn test`, frontend `npm run build`, backend package build, `git diff --check`, and direct Bilibili reply API smoke test passed.
 - Committed and pushed the hot-comment source update to `main` as `8f082e0 feat: include bilibili comment signals`.
+- After server reboot restored SSH, logs showed heavy public SSH password spraying on May 16 and no `sshd` authentication entries during the later unreachable window. The evidence points to an SSH/upstream forwarding or daemon availability issue before authentication, not an application deployment command changing SSH config.
+- Deployed `m6-chinese-tech-radar-hot-comments-20260516200205` after SSH recovered, then tightened source balancing so Bilibili cannot fill the entire Tech Radar result set when CSDN/V2EX are available.

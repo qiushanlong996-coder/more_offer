@@ -9,6 +9,8 @@ import {
   Gauge,
   Loader2,
   MessageSquareText,
+  Newspaper,
+  Radar,
   Search,
   ServerCog,
   Sparkles,
@@ -19,9 +21,11 @@ import {
   InterviewExperience,
   LeetCodeProblem,
   PreparationPlan,
+  TechRadar,
   fetchHotLeetCodeProblems,
   generateInterviewBrief,
   generatePreparationPlan,
+  researchTechRadar,
   searchInterviewExperiences
 } from "./api";
 
@@ -51,9 +55,11 @@ export function App() {
   const [problems, setProblems] = useState<LeetCodeProblem[]>(defaultProblems);
   const [plan, setPlan] = useState<PreparationPlan | null>(null);
   const [brief, setBrief] = useState<InterviewBrief | null>(null);
-  const [activeTab, setActiveTab] = useState<"interviews" | "problems" | "brief" | "plan">("interviews");
+  const [techRadar, setTechRadar] = useState<TechRadar | null>(null);
+  const [activeTab, setActiveTab] = useState<"interviews" | "problems" | "radar" | "brief" | "plan">("interviews");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [radarLoading, setRadarLoading] = useState(false);
   const [briefing, setBriefing] = useState(false);
   const [planning, setPlanning] = useState(false);
   const [error, setError] = useState("");
@@ -67,7 +73,7 @@ export function App() {
     [keywordText]
   );
 
-  const planSourceCount = items.length + problems.length;
+  const planSourceCount = items.length + problems.length + (techRadar?.articles.length ?? 0);
 
   useEffect(() => {
     fetchHotLeetCodeProblems("java-backend", 12)
@@ -94,11 +100,32 @@ export function App() {
       setQuery(result.query);
       setPlan(null);
       setBrief(null);
+      setTechRadar(null);
       setActiveTab("interviews");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Search failed");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleResearchTech() {
+    setRadarLoading(true);
+    setError("");
+
+    try {
+      const result = await researchTechRadar({
+        position,
+        company,
+        keywords,
+        limit: 8
+      });
+      setTechRadar(result);
+      setActiveTab("radar");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Tech radar failed");
+    } finally {
+      setRadarLoading(false);
     }
   }
 
@@ -152,9 +179,9 @@ export function App() {
           <p className="eyebrow">More Offer / M1 Offer Prep Cockpit</p>
           <h1>Turn interview signals and coding drills into an executable prep plan.</h1>
         </div>
-        <div className="source-pill" title="Nowcoder interviews are fetched through the dedicated MCP server">
+        <div className="source-pill" title="Nowcoder and Web-Rooter run through MCP servers">
           <ServerCog size={18} />
-          <span>Niuke MCP</span>
+          <span>Niuke + Web-Rooter MCP</span>
         </div>
       </section>
 
@@ -193,7 +220,7 @@ export function App() {
         <section className="insight-strip">
           <MetricCard icon={<BriefcaseBusiness size={18} />} label="Interviews" value={items.length} />
           <MetricCard icon={<ClipboardList size={18} />} label="Problems" value={problems.length} />
-          <MetricCard icon={<Target size={18} />} label="Keywords" value={keywords.length} />
+          <MetricCard icon={<Radar size={18} />} label="Tech Articles" value={techRadar?.articles.length ?? "--"} />
           <MetricCard icon={<Gauge size={18} />} label="Readiness" value={plan?.readinessScore ?? "--"} />
         </section>
 
@@ -208,6 +235,10 @@ export function App() {
                 <ClipboardList size={17} />
                 <span>Problems</span>
               </button>
+              <button type="button" className={activeTab === "radar" ? "active" : ""} onClick={() => setActiveTab("radar")}>
+                <Radar size={17} />
+                <span>Radar</span>
+              </button>
               <button type="button" className={activeTab === "brief" ? "active" : ""} onClick={() => setActiveTab("brief")}>
                 <MessageSquareText size={17} />
                 <span>Brief</span>
@@ -220,6 +251,7 @@ export function App() {
 
             {activeTab === "interviews" && <InterviewResults items={items} query={query} />}
             {activeTab === "problems" && <ProblemList items={problems} />}
+            {activeTab === "radar" && <TechRadarView radar={techRadar} onResearch={handleResearchTech} loading={radarLoading} />}
             {activeTab === "brief" && <BriefView brief={brief} onGenerate={handleGenerateBrief} briefing={briefing} />}
             {activeTab === "plan" && <PlanView plan={plan} onGenerate={handleGeneratePlan} planning={planning} />}
           </div>
@@ -236,6 +268,10 @@ export function App() {
             <button className="secondary-button" type="button" onClick={handleGenerateBrief} disabled={briefing}>
               {briefing ? <Loader2 className="spin" size={18} /> : <MessageSquareText size={18} />}
               <span>Build Brief</span>
+            </button>
+            <button className="secondary-button" type="button" onClick={handleResearchTech} disabled={radarLoading}>
+              {radarLoading ? <Loader2 className="spin" size={18} /> : <Radar size={18} />}
+              <span>Research Tech</span>
             </button>
             <p className="hint-text">The plan will use {planSourceCount} current signals.</p>
 
@@ -257,6 +293,14 @@ export function App() {
                   ))}
                 </div>
               </>
+            )}
+
+            {techRadar && (
+              <div className="radar-mini">
+                <span>{techRadar.generatedByOpenAi ? "OpenAI summary" : "Local summary"}</span>
+                <strong>{techRadar.themes[0] ?? "Tech radar"}</strong>
+                <p>{techRadar.articles.length} Web-Rooter sources</p>
+              </div>
             )}
           </aside>
         </section>
@@ -336,6 +380,86 @@ function ProblemList({ items }: { items: LeetCodeProblem[] }) {
           </a>
         </article>
       ))}
+    </div>
+  );
+}
+
+function TechRadarView({
+  radar,
+  onResearch,
+  loading
+}: {
+  radar: TechRadar | null;
+  onResearch: () => void;
+  loading: boolean;
+}) {
+  if (!radar) {
+    return (
+      <div className="empty-state">
+        <Radar size={28} />
+        <p>Run Web-Rooter research for the current interview context.</p>
+        <button className="inline-action" type="button" onClick={onResearch} disabled={loading}>
+          {loading ? <Loader2 className="spin" size={18} /> : <Radar size={18} />}
+          <span>Research Tech</span>
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="radar-layout">
+      <section className="radar-header">
+        <div>
+          <p className="eyebrow">Tech Radar</p>
+          <h2>{radar.query}</h2>
+        </div>
+        <span>{radar.generatedByOpenAi ? "OpenAI" : "Local"}</span>
+      </section>
+
+      <section className="radar-summary">
+        <Newspaper size={19} />
+        <p>{radar.summary}</p>
+      </section>
+
+      <section className="radar-columns">
+        <div className="checklist">
+          <h3>Themes</h3>
+          {radar.themes.map((theme) => (
+            <p key={theme}>
+              <Target size={17} />
+              <span>{theme}</span>
+            </p>
+          ))}
+        </div>
+        <div className="checklist">
+          <h3>Interview Signals</h3>
+          {radar.interviewSignals.map((signal) => (
+            <p key={signal}>
+              <MessageSquareText size={17} />
+              <span>{signal}</span>
+            </p>
+          ))}
+        </div>
+      </section>
+
+      <div className="list-stack">
+        {radar.articles.map((article) => (
+          <article className="result-card" key={article.id}>
+            <div className="result-heading">
+              <div>
+                <h2>{article.title}</h2>
+                <p>
+                  {article.source} - Match {Math.round(article.score * 100)}%
+                </p>
+              </div>
+              <a href={article.sourceUrl} target="_blank" rel="noreferrer" aria-label="Open article">
+                <ArrowUpRight size={18} />
+              </a>
+            </div>
+            <p className="article-snippet">{article.snippet || "Open the source for the full technical discussion."}</p>
+          </article>
+        ))}
+      </div>
     </div>
   );
 }

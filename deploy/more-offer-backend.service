@@ -12,6 +12,13 @@ Environment=SERVER_PORT=8080
 Environment=SPRING_PROFILES_ACTIVE=prod
 Environment=PATH=/opt/more-offer/runtime/node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 Environment=NOWCODER_BROWSER_EXECUTABLE_PATH=/usr/lib64/chromium-browser/headless_shell
+Environment=WEB_ROOTER_PYTHON=/opt/more-offer/runtime/web-rooter-venv/bin/python
+Environment=WEB_ROOTER_MCP_TIMEOUT=120s
+Environment=PLAYWRIGHT_NODEJS_PATH=/opt/more-offer/runtime/node/bin/node
+Environment=WEB_ROOTER_USE_REAL_CHROME=true
+Environment=WEB_ROOTER_CHROME_PATH=/usr/lib64/chromium-browser/headless_shell
+Environment=MORE_OFFER_OPENAI_MODEL=gpt-4.1-mini
+EnvironmentFile=-/opt/more-offer/.env
 
 [Install]
 WantedBy=multi-user.target

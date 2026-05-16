@@ -36,3 +36,20 @@
 - The server is headless CentOS, which can run Playwright in headless mode.
 - Playwright's default browser cache was missing and the default CDN/mirror download path was unreliable, so the server uses OS package `chromium-headless` from EPEL instead.
 - The backend systemd service exports `NOWCODER_BROWSER_EXECUTABLE_PATH=/usr/lib64/chromium-browser/headless_shell`; MCP launch args include `--no-sandbox` for the current root-run service.
+
+## 2026-05-16 Web-Rooter Tech Radar
+
+- `web-rooter-main` is adopted as a second MCP server, started by the backend through stdio with `python main.py --mcp`.
+- Web-Rooter is used for a new Tech Radar workflow: fetch stable technical-community search APIs through MCP `web_fetch`, normalize Hacker News and GitHub results, and turn them into interview-oriented themes and follow-up signals.
+- OpenAI summarization is optional and configured only through environment variables. The backend reads `OPENAI_API_KEY`, `MORE_OFFER_OPENAI_MODEL`, and `MORE_OFFER_OPENAI_ENDPOINT`; no API key is committed or written into deploy scripts.
+- If OpenAI is not configured or the API call fails, Tech Radar returns a deterministic local summary so the feature remains usable during deployment and offline testing.
+- Web-Rooter article results are shown as supplemental evidence beside Nowcoder interview notes, not mixed into the Nowcoder result list, to avoid presenting technology articles as real interview experiences.
+- The CentOS release keeps public access on `9001`; `/api/` nginx timeouts are raised because Web-Rooter searches may take longer than the Nowcoder-only path.
+- The backend systemd unit can load `/opt/more-offer/.env`, which is the operational place for `OPENAI_API_KEY` and other runtime-only secrets.
+- The server's system Python is 3.9 and cannot install `mcp>=1.0`, so Web-Rooter uses an application-private Miniconda Python 3.10 plus `/opt/more-offer/runtime/web-rooter-venv`; system Python remains untouched.
+- `greenlet` is pinned to a binary wheel before installing Web-Rooter requirements because the CentOS 7 GCC toolchain is too old to compile the latest source package.
+- Python Playwright's bundled node is not CentOS 7 compatible, so Web-Rooter is forced to use `/opt/more-offer/runtime/node/bin/node` and the OS `chromium-headless` binary through `PLAYWRIGHT_NODEJS_PATH`, `WEB_ROOTER_USE_REAL_CHROME`, and `WEB_ROOTER_CHROME_PATH`.
+- Web-Rooter `web_search_tech` remains available for future deeper crawls, but the product path uses API-backed `web_fetch` first because it is faster and avoids long browser fallback timeouts.
+- Web-Rooter's startup browser bootstrap now skips bundled Chromium installation when `WEB_ROOTER_USE_REAL_CHROME=true` and `WEB_ROOTER_CHROME_PATH` exists; otherwise the MCP server blocks on an incompatible Playwright browser install path.
+- GitHub API responses fetched through Web-Rooter may be transformed into extracted text rather than valid JSON, so the backend keeps a tolerant GitHub text parser for repository name, URL, description, stars, and language.
+- The Python MCP SDK stdio transport is line-delimited JSON, so the Java gateway writes one JSON-RPC message per newline and ignores Web-Rooter startup log lines before reading JSON responses.

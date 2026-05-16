@@ -65,3 +65,21 @@
 
 - Recorded GitHub push troubleshooting: this Windows machine may fail to push if stale global Git proxy settings are present.
 - Known fix: run `git config --global --unset http.proxy` and `git config --global --unset https.proxy`, then retry `git push origin main`.
+
+## 2026-05-16 Web-Rooter Tech Radar
+
+- Added backend configuration for `web-rooter-main` as a stdio MCP server and OpenAI Responses API-compatible summarization.
+- Added `POST /api/tech-radar/research`, returning query, summary, themes, Web-Rooter article sources, interview signals, source status, and generation time.
+- Switched Tech Radar from slow all-source `web_search_tech` to Web-Rooter MCP `web_fetch` against Hacker News Algolia and GitHub Search APIs for stable response time.
+- Added backend normalization for Web-Rooter's extracted GitHub API text, because Web-Rooter converts large JSON payloads into text snippets instead of preserving the full JSON object.
+- Added local fallback summarization for missing `OPENAI_API_KEY` or failed API calls.
+- Added frontend Radar tab, Research Tech action, Web-Rooter article cards, summary panel badge, and metric count.
+- Updated deployment assets to package the Web-Rooter runtime files, create `/opt/more-offer/runtime/web-rooter-venv`, set `WEB_ROOTER_PYTHON`, and load optional runtime secrets from `/opt/more-offer/.env`.
+- Confirmed server Python 3.9 cannot install `mcp>=1.0`; installed application-private Miniconda Python 3.10 under `/opt/more-offer/runtime/miniconda3` for Web-Rooter.
+- Fixed Web-Rooter dependency install strategy by preinstalling `greenlet==3.2.4` from a binary wheel; CentOS 7 cannot compile the latest source package with its default GCC.
+- Added Web-Rooter browser runtime environment support so Python Playwright uses the existing glibc-217 Node runtime and `/usr/lib64/chromium-browser/headless_shell`.
+- Patched Web-Rooter startup bootstrap to skip auto-installing bundled Chromium when the real headless Chromium path is already configured.
+- Local validation passed for frontend build and backend tests before deployment work.
+- Deployed `/opt/more-offer/releases/m5-web-rooter-final-20260516150957` to the server and kept public access on `http://www.lovenuaa.xyz:9001/`.
+- Public validation passed: `/actuator/health` returned `UP`, `POST /api/tech-radar/research` returned 4 Web-Rooter-backed sources in about 5.7s, and `POST /api/interview-experiences/search` still returned 20 Nowcoder results.
+- Browser validation passed on the public UI: clicking `Research Tech` rendered the Radar tab with 4 Web-Rooter sources and no app console errors.

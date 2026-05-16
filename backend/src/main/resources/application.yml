@@ -18,3 +18,15 @@ more-offer:
       args:
         - ../newcoder-mcp-server-main/dist/index.js
       timeout: 60s
+  web-rooter:
+    mcp:
+      command: ${WEB_ROOTER_PYTHON:python3}
+      args:
+        - ../web-rooter-main/main.py
+        - --mcp
+      timeout: ${WEB_ROOTER_MCP_TIMEOUT:120s}
+  openai:
+    api-key: ${OPENAI_API_KEY:}
+    model: ${MORE_OFFER_OPENAI_MODEL:gpt-4.1-mini}
+    endpoint: ${MORE_OFFER_OPENAI_ENDPOINT:https://api.openai.com/v1/responses}
+    timeout: ${MORE_OFFER_OPENAI_TIMEOUT:30s}

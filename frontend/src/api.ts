@@ -74,6 +74,27 @@ export type InterviewBrief = {
   followUpQuestions: string[];
 };
 
+export type TechRadarArticle = {
+  id: string;
+  title: string;
+  sourceUrl: string;
+  source: string;
+  snippet: string;
+  publishedAt: string;
+  score: number;
+};
+
+export type TechRadar = {
+  query: string;
+  summary: string;
+  generatedByOpenAi: boolean;
+  themes: string[];
+  articles: TechRadarArticle[];
+  interviewSignals: string[];
+  source: string;
+  generatedAt: string;
+};
+
 export async function searchInterviewExperiences(input: {
   position: string;
   company: string;
@@ -91,6 +112,28 @@ export async function searchInterviewExperiences(input: {
 
   if (!response.ok) {
     throw new Error(`Search failed: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function researchTechRadar(input: {
+  topic?: string;
+  position: string;
+  company: string;
+  keywords: string[];
+  limit: number;
+}): Promise<TechRadar> {
+  const response = await fetch("/api/tech-radar/research", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(input)
+  });
+
+  if (!response.ok) {
+    throw new Error(`Tech radar failed: ${response.status}`);
   }
 
   return response.json();

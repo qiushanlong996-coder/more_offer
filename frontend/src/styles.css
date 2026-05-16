@@ -435,6 +435,12 @@ input:focus {
   margin-top: 16px;
 }
 
+.radar-layout {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
 .brief-header {
   padding: 16px;
   border: 1px solid #dde2dc;
@@ -464,6 +470,87 @@ input:focus {
 
 .plan-header strong {
   font-size: 40px;
+}
+
+.radar-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid #dde2dc;
+  border-radius: 8px;
+  background: #fbfcfa;
+}
+
+.radar-header h2 {
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.radar-header > span,
+.radar-mini > span {
+  display: inline-flex;
+  width: fit-content;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 4px 9px;
+  color: #245b47;
+  background: #e9f2ed;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.radar-summary {
+  display: flex;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid #d6dfd9;
+  border-radius: 8px;
+  color: #26332c;
+  background: #f7fbf8;
+}
+
+.radar-summary svg {
+  flex: 0 0 auto;
+  color: #245b47;
+}
+
+.radar-summary p,
+.article-snippet,
+.radar-mini p {
+  margin: 0;
+}
+
+.article-snippet {
+  margin-top: 12px;
+  color: #435048;
+  font-size: 14px;
+}
+
+.radar-columns {
+  display: grid;
+  grid-template-columns: 0.8fr 1.2fr;
+  gap: 12px;
+}
+
+.radar-mini {
+  display: grid;
+  gap: 6px;
+  border: 1px solid #dde2dc;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbfcfa;
+}
+
+.radar-mini strong {
+  color: #17231c;
+  font-size: 15px;
+}
+
+.radar-mini p {
+  color: #68736d;
+  font-size: 13px;
 }
 
 .risk-grid {
@@ -647,6 +734,7 @@ input:focus {
   .insight-strip,
   .risk-grid,
   .signal-grid,
+  .radar-columns,
   .cluster-card,
   .brief-columns {
     grid-template-columns: 1fr;

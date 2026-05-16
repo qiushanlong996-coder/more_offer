@@ -82,7 +82,7 @@ class WebTools:
         """
         await self._ensure_initialized()
 
-        if "api.bilibili.com/x/web-interface/wbi/search/type" in url:
+        if "api.bilibili.com/x/web-interface/wbi/search/type" in url or "api.bilibili.com/x/v2/reply" in url:
             return await self._fetch_bilibili_api(url)
         
         # 检测是否是社交媒体详情页，强制使用浏览器

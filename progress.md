@@ -89,6 +89,8 @@
 
 - Updated Tech Radar to prioritize Chinese developer sources for Chinese users: CSDN articles, Bilibili technology videos, V2EX discussions, and Web-Rooter social search are queried before Hacker News/GitHub.
 - Added Bilibili API handling inside the bundled Web-Rooter MCP server so the backend can fetch Bilibili search results through MCP with browser-like public headers.
+- Extended Bilibili handling to fetch a bounded hot-comment sample for the top videos through Web-Rooter MCP, so summaries can include comment-section signals instead of only video metadata.
 - Increased frontend Radar requests from 8 to 12 sources and surfaced `publishedAt` in article cards.
 - Local validation passed: backend `mvn test` and frontend `npm run build`.
-- Prepared release package `m6-chinese-tech-radar-20260516155157`, but deployment is currently blocked because SSH to `www.lovenuaa.xyz` closes before the SSH banner (`Connection closed by remote host` / `ECONNRESET`) while port `9001` remains reachable.
+- Prepared release package `m6-chinese-tech-radar-hot-comments-20260516200205`, but deployment is currently blocked because SSH to `www.lovenuaa.xyz` closes before the SSH banner (`Connection closed by remote host` / `ECONNRESET`) while port `9001` remains reachable.
+- Current public server health is degraded while SSH is unavailable: `http://www.lovenuaa.xyz:9001/actuator/health` returns nginx `502`, and the root page returns `500`. The release package can be activated once SSH access recovers.

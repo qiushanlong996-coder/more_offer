@@ -105,7 +105,9 @@ public class McpStdioWebRooterGateway implements WebRooterMcpGateway {
                 + encodedChineseQuery + "&page=1&order=pubdate";
         try {
             String bilibiliText = callFetch(writer, reader, id++, bilibiliUrl);
-            parseBilibili(bilibiliText, deduped, Math.min(maxItems, 9));
+            int[] commentFetchId = {id};
+            parseBilibili(bilibiliText, deduped, Math.min(maxItems, 9), writer, reader, commentFetchId);
+            id = commentFetchId[0];
         } catch (IOException | RuntimeException ignored) {
             // Bilibili may ask for risk verification; social search remains as a fallback.
         }
@@ -234,7 +236,14 @@ public class McpStdioWebRooterGateway implements WebRooterMcpGateway {
         }
     }
 
-    private void parseBilibili(String text, Map<String, WebRooterArticleCandidate> articles, int limit) throws IOException {
+    private void parseBilibili(
+            String text,
+            Map<String, WebRooterArticleCandidate> articles,
+            int limit,
+            BufferedWriter writer,
+            BufferedReader reader,
+            int[] nextId
+    ) throws IOException {
         JsonNode apiRoot = extractFetchedJson(text);
         JsonNode results = apiRoot.path("data").path("result");
         if (!results.isArray()) {
@@ -244,11 +253,13 @@ public class McpStdioWebRooterGateway implements WebRooterMcpGateway {
         List<JsonNode> sorted = new ArrayList<>();
         results.forEach(sorted::add);
         sorted.sort(Comparator.comparingLong(item -> -item.path("pubdate").asLong(0)));
+        int commentFetches = 0;
         for (JsonNode item : sorted) {
             if (articles.size() >= limit) {
                 return;
             }
             String title = cleanText(item.path("title").asText(""));
+            String aid = item.path("aid").asText("");
             String bvid = item.path("bvid").asText("");
             String url = StringUtils.hasText(bvid)
                     ? "https://www.bilibili.com/video/" + bvid
@@ -256,12 +267,17 @@ public class McpStdioWebRooterGateway implements WebRooterMcpGateway {
             if (!isUsableTitle(title) || !StringUtils.hasText(url) || item.path("is_pay").asInt(0) == 1) {
                 continue;
             }
+            String commentSummary = "";
+            if (commentFetches < 3 && StringUtils.hasText(aid)) {
+                commentFetches++;
+                commentSummary = fetchBilibiliCommentSummary(writer, reader, nextId, aid, bvid);
+            }
             String publishedAt = formatEpochSeconds(item.path("pubdate").asLong(0));
             String snippet = cleanText(firstText(item.path("description").asText(""), item.path("tag").asText("")))
                     + " UP " + item.path("author").asText("未知")
                     + "，播放 " + item.path("play").asText("0")
                     + "，评论 " + item.path("review").asText("0")
-                    + "，弹幕 " + item.path("video_review").asText("0") + "。";
+                    + "，弹幕 " + item.path("video_review").asText("0") + "。" + commentSummary;
             articles.putIfAbsent(url, new WebRooterArticleCandidate(
                     title,
                     url,
@@ -271,6 +287,51 @@ public class McpStdioWebRooterGateway implements WebRooterMcpGateway {
                     articles.size() + 1
             ));
         }
+    }
+
+    private String fetchBilibiliCommentSummary(
+            BufferedWriter writer,
+            BufferedReader reader,
+            int[] nextId,
+            String aid,
+            String bvid
+    ) {
+        try {
+            String url = "https://api.bilibili.com/x/v2/reply?oid=" + URLEncoder.encode(aid, StandardCharsets.UTF_8)
+                    + "&type=1&pn=1&ps=8&sort=2";
+            String text = callFetch(writer, reader, nextId[0]++, url);
+            return parseBilibiliCommentSummary(text, bvid);
+        } catch (IOException | RuntimeException ignored) {
+            return "";
+        }
+    }
+
+    private String parseBilibiliCommentSummary(String text, String bvid) throws IOException {
+        JsonNode apiRoot = extractFetchedJson(text);
+        JsonNode replies = apiRoot.path("data").path("replies");
+        if (!replies.isArray() || replies.isEmpty()) {
+            return "";
+        }
+        List<String> comments = new ArrayList<>();
+        for (JsonNode reply : replies) {
+            if (comments.size() >= 3) {
+                break;
+            }
+            String message = cleanText(reply.path("content").path("message").asText(""));
+            if (!StringUtils.hasText(message)) {
+                continue;
+            }
+            String author = cleanText(reply.path("member").path("uname").asText(""));
+            int likeCount = reply.path("like").asInt(0);
+            String prefix = StringUtils.hasText(author) ? author + ": " : "";
+            String suffix = likeCount > 0 ? " (赞 " + likeCount + ")" : "";
+            comments.add(prefix + truncate(message, 80) + suffix);
+        }
+        if (comments.isEmpty()) {
+            return "";
+        }
+        String source = StringUtils.hasText(bvid) ? " BVID " + bvid : "";
+        return " 热评" + source + ": " + String.join(" / ", comments);
     }
 
     private void parseV2ex(String text, Map<String, WebRooterArticleCandidate> articles, int limit) throws IOException {

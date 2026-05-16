@@ -65,6 +65,7 @@
 
 - Recorded GitHub push troubleshooting: this Windows machine may fail to push if stale global Git proxy settings are present.
 - Known fix: run `git config --global --unset http.proxy` and `git config --global --unset https.proxy`, then retry `git push origin main`.
+- During the Web-Rooter milestone, the reliable push command was `git -c http.proxy= -c https.proxy= -c http.version=HTTP/1.1 push origin main`; this explicitly overrides any inherited proxy value for the one command.
 
 ## 2026-05-16 Web-Rooter Tech Radar
 

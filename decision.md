@@ -37,6 +37,10 @@
 - Playwright's default browser cache was missing and the default CDN/mirror download path was unreliable, so the server uses OS package `chromium-headless` from EPEL instead.
 - The backend systemd service exports `NOWCODER_BROWSER_EXECUTABLE_PATH=/usr/lib64/chromium-browser/headless_shell`; MCP launch args include `--no-sandbox` for the current root-run service.
 
+## 2026-05-16 Git Push Proxy Decision
+
+- If GitHub push fails on this Windows machine after unsetting global proxy config, run the push with explicit empty proxy overrides: `git -c http.proxy= -c https.proxy= -c http.version=HTTP/1.1 push origin main`.
+
 ## 2026-05-16 Web-Rooter Tech Radar
 
 - `web-rooter-main` is adopted as a second MCP server, started by the backend through stdio with `python main.py --mcp`.

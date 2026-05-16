@@ -1,0 +1,20 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: more-offer-backend
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+more-offer:
+  niuke:
+    mcp:
+      command: node
+      args:
+        - ../newcoder-mcp-server-main/dist/index.js
+      timeout: 60s

@@ -1,0 +1,17 @@
+[Unit]
+Description=More Offer Spring Boot Backend
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/more-offer/current/backend
+ExecStart=/opt/more-offer/runtime/jre-21/bin/java -jar /opt/more-offer/current/backend/more-offer-backend-0.1.0.jar
+Restart=always
+RestartSec=5
+Environment=SERVER_PORT=8080
+Environment=SPRING_PROFILES_ACTIVE=prod
+Environment=PATH=/opt/more-offer/runtime/node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+Environment=NOWCODER_BROWSER_EXECUTABLE_PATH=/usr/lib64/chromium-browser/headless_shell
+
+[Install]
+WantedBy=multi-user.target
